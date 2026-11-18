@@ -1,0 +1,5 @@
+package com.example.carbon_sense_mobile
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
