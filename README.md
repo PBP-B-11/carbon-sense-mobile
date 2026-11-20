@@ -69,7 +69,7 @@ Setiap anggota melanjutkan modul yang sama dengan Proyek Tengah Semester.
 | :--- | :--- |
 | **Tamu** (belum login) | Melihat Beranda, katalog tantangan dan lencana, serta feed komunitas; mendaftar dan masuk. |
 | **Pengguna terdaftar** | Mencatat aktivitas, mengikuti tantangan dan check-in, memposting dan berkomentar, serta mengatur profilnya. |
-| **Administrator (superuser)** | Semua hak pengguna, ditambah mengelola katalog tantangan (tambah, ubah, hapus). |
+| **Administrator (superuser)** | Mengelola katalog tantangan melalui situs web. Aplikasi mobile mencakup alur pengguna. |
 
 ---
 
@@ -88,58 +88,48 @@ Aplikasi Flutter  <--HTTP/JSON-->  Django REST Framework  <-->  Database situs w
 
 Karena memakai database yang sama, data yang diubah di aplikasi langsung terlihat di situs web, dan sebaliknya. Layanan pihak ketiga (Climatiq, Open-Meteo, GNews) hanya dipanggil oleh server, jadi kunci API tidak pernah ada di aplikasi.
 
-- **URL dasar web service:** `http://faishal-falih-carbon-sense.pws.cs.ui.ac.id/api/mobile/`
+- **URL dasar PWS:** `https://faishal-falih-carbon-sense.pws.cs.ui.ac.id/api/v1/`
+- URL lokal emulator Android: `http://10.0.2.2:8000/api/v1/`. Untuk perangkat fisik, gunakan alamat IP komputer di jaringan yang sama.
 
 ### Struktur kode API di repo Django
 
-Kode API mobile dipisah dari kode web, di folder `mobile_api/` dengan satu subfolder per modul, dan semuanya dipasang di `/api/mobile/`. Endpoint web yang sudah ada (misalnya `/api/tantangan/`) tidak diubah.
-
-```
-mobile_api/
-  urls.py        # rute utama, tempat tiap modul menambah include
-  tantangan/     # Eco-Challenges (serializers.py, views.py, urls.py)
-  tests/
-```
+Endpoint mobile didaftarkan di `carbon_sense/api_urls.py` dan dipasang di `/api/v1/`. View API berada di `api_views.py` pada aplikasi Django masing-masing (`home`, `profil`, `tracker`, `challenges`, dan `community`), serta memakai model dan layanan backend yang sama dengan situs web.
 
 ### Autentikasi
 
-> **Belum diputuskan kelompok.** Situs web memakai sesi dan CSRF bawaan Django, dan server produksi mengatur `CSRF_TRUSTED_ORIGINS` untuk `https`. Cara Flutter menyimpan sesi atau token dan menangani CSRF perlu disepakati dengan pemilik Modul 2 (login ada di sana), mengikuti materi Tutorial 07. Perlu dicek juga apakah PWS melayani `http` atau `https`.
+Flutter menggunakan token DRF. Login dan registrasi mengembalikan `token` dan `username`; request terautentikasi mengirim header `Authorization: Token <token>`. Token disimpan di penyimpanan aman perangkat, lalu dihapus saat logout, setelah perubahan kata sandi, atau ketika API membalas `401`. Token backend tidak kedaluwarsa otomatis. Gunakan HTTPS untuk PWS.
 
 ---
 
 ## Navigasi Aplikasi
 
-Bottom navigation dengan lima tab: **Beranda**, **Tracker**, **Profil**, **Challenges**, dan **Komunitas**. Tiap tab membuka halaman milik modulnya.
+Rencana navigasi aplikasi adalah bottom navigation dengan lima tab: **Beranda**, **Tracker**, **Profil**, **Challenges**, dan **Komunitas**. Halaman dan navigasi Flutter masih perlu diimplementasikan.
 
 ---
 
 ## Daftar Endpoint Django REST Framework
 
-Semua path berada di bawah `/api/mobile/`. Kolom **Status**:
-- **berjalan (lokal)**: sudah dibuat dan lulus tes di komputer pengembang, belum diuji di PWS.
-- **rencana**: usulan berdasarkan fitur web yang sudah ada, menunggu pemilik modul membuat dan mengonfirmasi.
+Semua path berada di bawah `/api/v1/`. Endpoint berikut sudah diimplementasikan di backend lokal; tes API ada di `carbon_sense/test_mobile_api.py`. Ketersediaan di PWS belum diverifikasi.
 
 ### Eco-Challenges (M Naufal Abyaz Bawono)
 
 | Metode | Endpoint | Login | Fungsi | Status |
 | :--- | :--- | :---: | :--- | :--- |
-| GET | `tantangan/` | tidak | Daftar tantangan (query `kategori`, `q`, `sort`) | berjalan (lokal) |
-| GET | `tantangan/<id>/` | tidak | Detail satu tantangan | berjalan (lokal) |
-| POST | `tantangan/<id>/ikut/` | ya | Ikut tantangan (hanya satu tantangan aktif) | berjalan (lokal) |
-| POST | `tantangan/<id>/checkin/` | ya | Check-in hari ini (409 bila sudah) | berjalan (lokal) |
-| POST | `tantangan/<id>/berhenti/` | ya | Berhenti dari tantangan | berjalan (lokal) |
-| GET | `tantangan/aktif/` | ya | Tantangan yang diikuti beserta progres | berjalan (lokal) |
-| GET | `lencana/` | tidak | Semua lencana dengan penanda `dimiliki` | berjalan (lokal) |
-| GET | `ringkasan/` | ya | Poin, streak, dan hitungan tantangan pengguna | berjalan (lokal) |
-| POST | `tantangan/` | admin | Tambah tantangan | rencana |
-| PUT/PATCH | `tantangan/<id>/` | admin | Ubah tantangan | rencana |
-| DELETE | `tantangan/<id>/` | admin | Hapus tantangan | rencana |
+| GET | `challenges/` | tidak | Daftar tantangan; filter `kategori`, `q`, `sort` | lokal |
+| GET | `challenges/<uuid:id>/` | tidak | Detail tantangan | lokal |
+| GET | `challenges/progress/` | ya | Progres aktif, poin, streak, dan ringkasan pengguna | lokal |
+| GET | `challenges/badges/` | tidak | Lencana; `earned_at` menunjukkan perolehan untuk pengguna terautentikasi | lokal |
+| POST | `challenges/<uuid:id>/join/` | ya | Ikut tantangan | lokal |
+| POST | `challenges/<uuid:id>/checkin/` | ya | Check-in harian; `409` jika sudah check-in | lokal |
+| POST | `challenges/<uuid:id>/leave/` | ya | Berhenti dari tantangan aktif | lokal |
+
+Pengelolaan katalog oleh admin dilakukan melalui situs web; endpoint CRUD admin tidak tersedia di API mobile.
 
 ### Beranda (M Naufal Abyaz Bawono)
 
 | Metode | Endpoint | Login | Fungsi | Status |
 | :--- | :--- | :---: | :--- | :--- |
-| GET | `beranda/` | opsional | Total emisi minggu ini, tips hari ini, dan berita hangat | rencana |
+| GET | `home/` | opsional | Ringkasan beranda; data emisi personal mengikuti token jika dikirim | lokal |
 
 Bergantung pada data Carbon Tracker (total emisi) dan Green Community (berita).
 
@@ -149,13 +139,13 @@ Data: `CarbonActivity` (jenis: `car_travel`, `electricity`, `chicken`, `beef`; j
 
 | Metode | Endpoint | Login | Fungsi | Status |
 | :--- | :--- | :---: | :--- | :--- |
-| GET | `aktivitas/` | ya | Riwayat aktivitas pengguna | rencana |
-| POST | `aktivitas/estimasi/` | ya | Estimasi emisi tanpa menyimpan | rencana |
-| POST | `aktivitas/` | ya | Catat aktivitas baru | rencana |
-| GET | `aktivitas/<id>/` | ya | Detail satu aktivitas | rencana |
-| PUT/PATCH | `aktivitas/<id>/` | ya | Ubah aktivitas | rencana |
-| DELETE | `aktivitas/<id>/` | ya | Hapus aktivitas | rencana |
-| GET | `aktivitas/ringkasan/` | ya | Dashboard: total, rincian per kategori, dan grafik (query `period`) | rencana |
+| GET | `tracker/activities/` | ya | Riwayat aktivitas sendiri (berhalaman) | lokal |
+| POST | `tracker/estimate/` | tidak | Estimasi emisi tanpa menyimpan | lokal |
+| POST | `tracker/activities/` | ya | Simpan aktivitas baru | lokal |
+| GET | `tracker/activities/<id>/` | pemilik | Detail aktivitas sendiri | lokal |
+| PUT | `tracker/activities/<id>/` | pemilik | Ganti data aktivitas | lokal |
+| DELETE | `tracker/activities/<id>/` | pemilik | Hapus aktivitas | lokal |
+| GET | `tracker/dashboard/?period=week` | ya | Total, rincian kategori, dan data grafik; periode `week`, `month`, atau `year` | lokal |
 
 ### Profil dan Udara (Faishal Falih)
 
@@ -163,16 +153,14 @@ Data: `User` dan `UserProfile` (bio, kota, koordinat).
 
 | Metode | Endpoint | Login | Fungsi | Status |
 | :--- | :--- | :---: | :--- | :--- |
-| POST | `auth/register/` | tidak | Daftar akun beserta kota | rencana |
-| POST | `auth/login/` | tidak | Masuk | rencana |
-| POST | `auth/logout/` | ya | Keluar | rencana |
-| GET | `profil/` | ya | Lihat profil | rencana |
-| PATCH | `profil/` | ya | Ubah email dan bio | rencana |
-| GET | `kota/?q=` | tidak | Cari kota | rencana |
-| PUT | `profil/kota/` | ya | Ubah kota domisili | rencana |
-| POST | `profil/password/` | ya | Ganti kata sandi | rencana |
-| DELETE | `profil/` | ya | Hapus akun | rencana |
-| GET | `udara/` | ya | Cuaca dan kualitas udara di kota pengguna | rencana |
+| POST | `auth/register/` | tidak | Daftar dengan `username`, `password1`, `password2`, `email`, dan token pilihan `city` | lokal |
+| POST | `auth/login/` | tidak | Masuk dengan username dan kata sandi; mengembalikan token | lokal |
+| POST | `auth/logout/` | ya | Cabut token | lokal |
+| GET, PUT, DELETE | `profile/` | ya | Baca profil; PUT mengubah `email` dan `bio`; DELETE perlu `password` dan `confirm: true` | lokal |
+| GET | `profile/cities/?q=` | tidak | Cari kota; hasil berisi label dan token kota | lokal |
+| PUT | `profile/city/` | ya | Ubah kota menggunakan token hasil pencarian | lokal |
+| GET | `profile/environment/` | ya | Cuaca dan kualitas udara kota profil | lokal |
+| POST | `profile/password/` | ya | Ganti kata sandi; token saat ini dicabut | lokal |
 
 ### Green Community (M. Fatih Danika)
 
@@ -180,16 +168,15 @@ Data: `Post` (kategori `tips`, `diskusi`, `berita`), `Comment`, dan `Like`.
 
 | Metode | Endpoint | Login | Fungsi | Status |
 | :--- | :--- | :---: | :--- | :--- |
-| GET | `komunitas/postingan/` | tidak | Feed postingan (filter kategori, halaman) | rencana |
-| POST | `komunitas/postingan/` | ya | Buat postingan | rencana |
-| GET | `komunitas/postingan/<id>/` | tidak | Detail postingan beserta komentar | rencana |
-| PATCH | `komunitas/postingan/<id>/` | pemilik | Ubah postingan | rencana |
-| DELETE | `komunitas/postingan/<id>/` | pemilik | Hapus postingan | rencana |
-| POST | `komunitas/postingan/<id>/like/` | ya | Suka atau batal suka | rencana |
-| POST | `komunitas/postingan/<id>/komentar/` | ya | Tambah komentar | rencana |
-| PATCH/DELETE | `komunitas/komentar/<id>/` | pemilik | Ubah atau hapus komentar | rencana |
-| GET | `komunitas/berita/` | tidak | Berita lingkungan | rencana |
-| POST | `komunitas/berita/bagikan/` | ya | Bagikan berita sebagai postingan | rencana |
+| GET, POST | `community/posts/` | GET publik, POST ya | Baca feed berhalaman atau buat post `tips`/`diskusi` | lokal |
+| GET, PUT, DELETE | `community/posts/<uuid:pk>/` | GET publik, ubah/hapus pemilik | Baca atau kelola post sendiri | lokal |
+| PUT, DELETE | `community/posts/<uuid:pk>/like/` | ya | Suka atau batal suka | lokal |
+| GET, POST | `community/posts/<uuid:pk>/comments/` | GET publik, POST ya | Baca komentar atau tambah komentar | lokal |
+| PUT, DELETE | `community/comments/<id>/` | pemilik | Ubah atau hapus komentar sendiri | lokal |
+| GET | `community/news/` | tidak | Baca berita lingkungan | lokal |
+| POST | `community/news/share/` | ya | Bagikan berita dari daftar berita | lokal |
+
+Riwayat aktivitas, feed, dan komentar menggunakan pagination `?page=`. ID aktivitas/komentar berupa integer; ID post/tantangan berupa UUID. Respons hapus `204` tidak memiliki body. Check-in ulang dapat membalas `409`; pembatasan frekuensi dapat membalas `429`.
 
 ---
 
