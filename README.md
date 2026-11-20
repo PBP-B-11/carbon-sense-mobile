@@ -103,7 +103,7 @@ Flutter menggunakan token DRF. Login dan registrasi mengembalikan `token` dan `u
 
 ## Navigasi Aplikasi
 
-Rencana navigasi aplikasi adalah bottom navigation dengan lima tab: **Beranda**, **Tracker**, **Profil**, **Challenges**, dan **Komunitas**. Halaman dan navigasi Flutter masih perlu diimplementasikan.
+Bottom navigation membuka lima halaman terpisah: **Beranda**, **Tracker**, **Profil**, **Challenges**, dan **Komunitas**. Untuk mencoba kerangkanya, jalankan `flutter run` lalu ketuk setiap tab. Halaman modul masih berupa tampilan awal dan belum terhubung ke API.
 
 ---
 
