@@ -1,0 +1,58 @@
+name: Mobile CI/CD
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions: {}
+
+jobs:
+  checks:
+    name: Flutter checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: '3.47.9'
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub
+
+  deploy:
+    name: Queue Bitrise APK build
+    needs: checks
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the checked commit on Bitrise
+        env:
+          BITRISE_APP_SLUG: ${{ vars.BITRISE_APP_SLUG }}
+          BITRISE_API_TOKEN: ${{ secrets.BITRISE_API_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$BITRISE_APP_SLUG" || -z "$BITRISE_API_TOKEN" ]]; then
+            echo '::error::Set the BITRISE_APP_SLUG variable and BITRISE_API_TOKEN secret in GitHub Actions settings.'
+            exit 1
+          fi
+
+          payload=$(jq -nc --arg branch "$GITHUB_REF_NAME" --arg commit "$GITHUB_SHA" \
+            '{hook_info: {type: "bitrise"}, build_params: {branch: $branch, commit_hash: $commit, workflow_id: "android_debug"}}')
+          status=$(curl --fail --silent --show-error --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: $BITRISE_API_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            "https://api.bitrise.io/v0.1/apps/$BITRISE_APP_SLUG/builds")
+          if [[ "$status" != '201' ]]; then
+            echo "::error::Expected HTTP 201 from the Bitrise build API, got $status."
+            exit 1
+          fi
+          echo "Queued Bitrise build for $GITHUB_SHA."

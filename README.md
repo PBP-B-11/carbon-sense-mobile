@@ -198,7 +198,8 @@ Semua dipanggil oleh server Django dan hasilnya di-cache. Aplikasi mobile tidak 
 | Web service | Django 5.2 dan Django REST Framework |
 | Basis data | SQLite (lokal) dan PostgreSQL (produksi) |
 | Server | gunicorn dan WhiteNoise |
-| CI/CD | GitHub Actions: `ruff check`, `ruff format --check`, dan seluruh tes, lalu deploy `main` ke PWS |
+| CI/CD mobile | GitHub Actions untuk analisis dan tes. Bitrise untuk build dan distribusi APK Android debug. |
+| CI/CD backend | GitHub Actions untuk Ruff, tes Django, dan deploy `main` ke PWS. |
 
 ---
 
@@ -251,8 +252,19 @@ flutter run
 
 ### Pengujian
 
+- Aplikasi mobile: `flutter analyze` dan `flutter test`.
 - Web service: `python manage.py test` (185 tes di branch `main`). Tes API mobile: `python manage.py test mobile_api`.
 - Kualitas kode (dijalankan CI): `ruff check .` dan `ruff format --check .`
+
+### CI/CD Android
+
+GitHub Actions menjalankan analisis dan tes pada pull request yang menargetkan `main` atau `develop` dan setiap push ke kedua branch itu. Setelah pemeriksaan pada push lulus, GitHub Actions mengantrekan workflow `android_debug` di Bitrise untuk commit yang sama. Unduh `app-debug.apk` dari tab **Artifacts** pada build Bitrise yang berhasil.
+
+1. Hubungkan repo ini ke proyek Bitrise. Setelah `bitrise.yml` ada di branch default proyek, pilih **Workflows → Change storage**, gunakan penyimpanan di repo, lalu pilih **Validate and save**. Pastikan `bitrise.yml` juga tersedia di branch lain yang akan dibangun. Gunakan GitHub Actions sebagai pemicu otomatis agar tiap push hanya mengantrekan satu build. [Panduan penyimpanan konfigurasi Bitrise](https://docs.bitrise.io/en/bitrise-ci/configure-builds/configuration-yaml/storing-an-apps-configuration-yaml)
+2. Di GitHub, buka **Settings → Secrets and variables → Actions**. Tambahkan variable `BITRISE_APP_SLUG` dari URL proyek Bitrise dan secret `BITRISE_API_TOKEN` yang punya akses untuk memicu build proyek itu. [Panduan autentikasi API Bitrise](https://docs.bitrise.io/en/bitrise-ci/api/authenticating-with-the-bitrise-api)
+3. Jika push pertama berjalan sebelum pengaturan selesai, jalankan ulang job **Queue Bitrise APK build** dari tab **Actions**.
+
+APK ini untuk uji coba internal. Jika tanda tangan debug berbeda dari APK yang sudah terpasang, hapus versi lama sebelum memasang APK baru.
 
 ---
 
