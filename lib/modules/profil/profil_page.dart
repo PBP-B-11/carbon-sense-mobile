@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'profile_api.dart';
+import 'profile_auth_page.dart';
 import 'profile_dashboard.dart';
 import 'profile_dialogs.dart';
 
@@ -69,26 +70,11 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Future<void> _login() async {
-    final fields = await promptProfileFields(
-      context,
-      title: 'Masuk ke Carbon Sense',
-      action: 'Masuk',
-      fields: const [('Nama pengguna', false), ('Kata sandi', true)],
+    final token = await Navigator.of(context).push(
+      MaterialPageRoute<String>(builder: (_) => ProfileAuthPage(api: _api)),
     );
-    if (fields == null) return;
+    if (token == null || !mounted) return;
     await _run(() async {
-      final account = await _request(
-        'POST',
-        'auth/login/',
-        body: {'username': fields[0], 'password': fields[1]},
-      );
-      if (!mounted) return;
-      final token = account['token'];
-      if (token is! String || token.isEmpty) {
-        throw const ProfileApiException(
-          'Sesi masuk tidak dapat dibuat. Coba lagi.',
-        );
-      }
       setState(() => _token = token);
       await _loadProfile();
     });
@@ -138,22 +124,7 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Future<void> _pickCity() async {
-    final city = await showDialog<ProfileCity>(
-      context: context,
-      builder: (context) => ProfileCityPicker(
-        search: (query) async {
-          final response = await _api.request(
-            'GET',
-            'profile/cities/',
-            query: {'q': query},
-          );
-          return [
-            for (final city in response['results'] as List)
-              (label: city['label'] as String, token: city['token'] as String),
-          ];
-        },
-      ),
-    );
+    final city = await ProfileCityPicker.show(context, _api);
     if (city != null && mounted) setState(() => _pendingCity = city);
   }
 

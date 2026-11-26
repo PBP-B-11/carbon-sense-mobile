@@ -38,6 +38,14 @@ void main() {
     final client = MockClient((request) async {
       final path = request.url.path;
       if (path == '/api/v1/auth/login/') {
+        if (jsonDecode(request.body)['password'] == 'salah') {
+          return http.Response(
+            jsonEncode({
+              'non_field_errors': ['Nama pengguna atau kata sandi salah.'],
+            }),
+            400,
+          );
+        }
         expect(jsonDecode(request.body), {
           'username': 'naufal',
           'password': 'kata-sandi-tes',
@@ -95,13 +103,21 @@ void main() {
     expect(find.text('Profil kamu'), findsOneWidget);
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
+    expect(find.text('Masuk ke Carbon Sense'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
 
-    Finder dialogField(String label) =>
-        find.widgetWithText(TextFormField, label);
+    Finder field(String label) => find.widgetWithText(TextFormField, label);
 
-    await tester.enterText(dialogField('Nama pengguna'), 'naufal');
-    await tester.enterText(dialogField('Kata sandi'), 'kata-sandi-tes');
-    await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
+    final submit = find.widgetWithText(FilledButton, 'Masuk');
+    await tester.enterText(field('Nama pengguna'), 'naufal');
+    await tester.enterText(field('Kata sandi'), 'salah');
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(find.text('Nama pengguna atau kata sandi salah.'), findsOneWidget);
+    expect(find.text('naufal'), findsOneWidget);
+
+    await tester.enterText(field('Kata sandi'), 'kata-sandi-tes');
+    await tester.tap(submit);
     await tester.pumpAndSettle();
 
     expect(
@@ -155,15 +171,113 @@ void main() {
 
     await tester.tap(delete);
     await tester.pumpAndSettle();
-    await tester.enterText(
-      dialogField('Kata sandi saat ini'),
-      'kata-sandi-tes',
-    );
+    await tester.enterText(field('Kata sandi saat ini'), 'kata-sandi-tes');
     await tester.tap(find.widgetWithText(FilledButton, 'Hapus akun'));
     await tester.pumpAndSettle();
     expect(deleteRequests, 1);
     expect(find.text('Akun dihapus.'), findsOneWidget);
     expect(tester.widget<OutlinedButton>(delete).onPressed, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Register on the same auth page and return signed into Profile', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var registerRequests = 0;
+    final client = MockClient((request) async {
+      switch ((request.method, request.url.path)) {
+        case ('GET', '/api/v1/profile/cities/'):
+          expect(request.url.queryParameters, {'q': 'bogor'});
+          return http.Response(
+            jsonEncode({
+              'results': [
+                {'label': 'Bogor, Jawa Barat', 'token': 'kota-tes'},
+              ],
+            }),
+            200,
+          );
+        case ('POST', '/api/v1/auth/register/'):
+          registerRequests++;
+          expect(jsonDecode(request.body), {
+            'username': 'rani',
+            'email': 'rani@contoh.id',
+            'city': 'kota-tes',
+            'password1': 'KataSandiTes123!',
+            'password2': 'KataSandiTes123!',
+          });
+          return http.Response(jsonEncode({'token': 'token-rani'}), 201);
+        case ('GET', '/api/v1/profile/'):
+          expect(request.headers['authorization'], 'Token token-rani');
+          return http.Response(
+            jsonEncode({
+              'username': 'rani',
+              'city_name': 'Bogor',
+              'email': 'rani@contoh.id',
+              'bio': '',
+            }),
+            200,
+          );
+        case ('GET', '/api/v1/profile/environment/'):
+          return http.Response(jsonEncode({'snapshot': null}), 200);
+      }
+      fail('Unexpected request ${request.method} ${request.url.path}');
+    });
+    addTearDown(client.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ProfilPage(client: client)),
+      ),
+    );
+    await tester.tap(find.text('Masuk'));
+    await tester.pumpAndSettle();
+
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> enter(String label, String value) async {
+      final input = find.widgetWithText(TextFormField, label);
+      await tester.ensureVisible(input);
+      await tester.enterText(input, value);
+    }
+
+    await enter('Nama pengguna', 'rani');
+    final showRegister = find.text('Belum punya akun? Daftar');
+    await tap(showRegister);
+    expect(find.text('Daftar akun'), findsOneWidget);
+    await tap(find.text('Sudah punya akun? Masuk'));
+    expect(find.text('Masuk ke Carbon Sense'), findsOneWidget);
+    expect(find.text('rani'), findsOneWidget);
+    await tap(showRegister);
+
+    await enter('Email', 'rani@contoh.id');
+    await enter('Kata sandi', 'KataSandiTes123!');
+    await enter('Konfirmasi kata sandi', 'salah');
+    final register = find.widgetWithText(FilledButton, 'Daftar');
+    await tap(register);
+    expect(find.text('Pilih kota domisili.'), findsOneWidget);
+    expect(find.text('Kata sandi belum cocok.'), findsOneWidget);
+    expect(registerRequests, 0);
+
+    await tap(find.widgetWithText(OutlinedButton, 'Pilih kota'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Cari nama kota'),
+      'bogor',
+    );
+    await tap(find.byTooltip('Cari'));
+    await tap(find.text('Bogor, Jawa Barat'));
+    await enter('Konfirmasi kata sandi', 'KataSandiTes123!');
+    await tap(register);
+
+    expect(registerRequests, 1);
+    expect(find.text('Daftar akun'), findsNothing);
+    expect(find.text('@rani'), findsOneWidget);
+    expect(find.text('Cuaca dan udara di Bogor'), findsOneWidget);
+    expect(find.text('Keluar'), findsOneWidget);
   });
 }

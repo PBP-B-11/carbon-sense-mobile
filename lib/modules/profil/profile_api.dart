@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+typedef ProfileCity = ({String label, String token});
+
 class ProfileApi {
   ProfileApi(this.client);
 
@@ -15,6 +17,18 @@ class ProfileApi {
           'https://faishal-falih-carbon-sense.pws.cs.ui.ac.id/api/v1/',
     ),
   );
+
+  Future<List<ProfileCity>> searchCities(String query) async {
+    final response = await request(
+      'GET',
+      'profile/cities/',
+      query: {'q': query},
+    );
+    return [
+      for (final city in response['results'] as List)
+        (label: city['label'] as String, token: city['token'] as String),
+    ];
+  }
 
   Future<Map<String, dynamic>> request(
     String method,
@@ -39,7 +53,7 @@ class ProfileApi {
           .then(http.Response.fromStream)
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 204) return {};
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 && token != null) {
         throw const ProfileApiException(
           'Sesi berakhir. Silakan masuk lagi.',
           401,

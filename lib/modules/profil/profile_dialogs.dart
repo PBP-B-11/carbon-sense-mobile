@@ -76,10 +76,14 @@ Future<List<String>?> promptProfileFields(
   );
 }
 
-typedef ProfileCity = ({String label, String token});
-
 class ProfileCityPicker extends StatefulWidget {
   const ProfileCityPicker({super.key, required this.search});
+
+  static Future<ProfileCity?> show(BuildContext context, ProfileApi api) =>
+      showDialog<ProfileCity>(
+        context: context,
+        builder: (context) => ProfileCityPicker(search: api.searchCities),
+      );
 
   final Future<List<ProfileCity>> Function(String) search;
 
