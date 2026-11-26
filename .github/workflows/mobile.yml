@@ -29,7 +29,7 @@ jobs:
   deploy:
     name: Queue Bitrise APK build
     needs: checks
-    if: github.event_name == 'push'
+    if: ${{ false }} # Enable for push events after Bitrise is configured.
     runs-on: ubuntu-latest
     steps:
       - name: Trigger the checked commit on Bitrise
