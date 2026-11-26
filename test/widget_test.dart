@@ -9,7 +9,7 @@ void main() {
 
     const destinations = [
       ('Tracker', 'Carbon Tracker'),
-      ('Profil', 'Profil & Udara'),
+      ('Profil', 'Profil dan'),
       ('Challenges', 'Eco-Challenges'),
       ('Komunitas', 'Green Community'),
       ('Beranda', 'Jejak karbonmu'),
